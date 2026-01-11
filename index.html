@@ -2,60 +2,77 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>パラシュート降下ゲーム（サメ迫力＆判定修正版）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>パラシュート着陸ゲーム</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
+            justify-content: flex-start; /* 上詰めにする */
+            width: 100%;
+            height: 100vh; /* 画面いっぱいに固定 */
+            height: 100dvh; /* モバイルブラウザのアドレスバー対策 */
             padding: 10px;
-            overflow: hidden;
-            touch-action: none;
+            overflow: hidden; /* スクロール禁止 */
+            touch-action: none; /* スクロールやズームのジェスチャを無効化 */
+            user-select: none; /* 長押しによるテキスト選択禁止 */
+            -webkit-user-select: none;
+            -webkit-touch-callout: none; /* iOS長押しメニュー禁止 */
         }
         
         h1 {
             color: #2C3E50;
-            font-size: clamp(20px, 5vw, 32px);
-            margin-bottom: 10px;
+            font-size: clamp(18px, 4vw, 24px); /* 少し小さくして画面を広く使う */
+            margin: 5px 0;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            flex-shrink: 0;
         }
         
         .score-board {
             display: flex;
-            gap: 20px;
-            margin-bottom: 10px;
-            font-size: clamp(14px, 3vw, 18px);
+            gap: 15px;
+            margin-bottom: 5px;
+            font-size: clamp(12px, 3vw, 16px);
             color: #2C3E50;
             font-weight: bold;
+            flex-shrink: 0;
         }
         
         .score-item {
             background: rgba(255, 255, 255, 0.8);
-            padding: 8px 15px;
+            padding: 5px 12px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
         .game-container {
             position: relative;
             border-radius: 10px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            flex-grow: 1; /* 可能な限り大きく */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 10px;
+            overflow: hidden;
         }
 
         #gameCanvas {
             background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 70%, #4682B4 100%);
-            border: 4px solid #2C3E50;
+            border: 2px solid #2C3E50;
             border-radius: 10px;
             display: block;
+            /* キャンバスのサイズ調整: 縦横比を維持しつつコンテナに収める */
             max-width: 100%;
-            height: auto;
+            max-height: 100%;
+            object-fit: contain; 
         }
 
         #gameOverlay {
@@ -78,7 +95,7 @@
             padding: 20px;
             border-radius: 15px;
             text-align: center;
-            width: 80%;
+            width: 85%;
             max-width: 300px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -90,13 +107,13 @@
         }
 
         .modal-title {
-            font-size: 24px;
+            font-size: 22px;
             margin-bottom: 10px;
             font-weight: bold;
         }
 
         .modal-msg {
-            font-size: 16px;
+            font-size: 15px;
             color: #555;
             margin-bottom: 20px;
             line-height: 1.4;
@@ -106,12 +123,11 @@
             background: #2ECC71;
             color: white;
             border: none;
-            padding: 10px 20px;
-            font-size: 18px;
+            padding: 12px 0;
+            font-size: 16px;
             border-radius: 25px;
             cursor: pointer;
             width: 100%;
-            margin-top: 10px;
             font-weight: bold;
             box-shadow: 0 3px 0 #27AE60;
         }
@@ -120,45 +136,15 @@
             box-shadow: none;
         }
         .btn-retry { background: #E74C3C; box-shadow: 0 3px 0 #C0392B; }
-        .btn-retry:active { box-shadow: none; }
-        
-        .controls {
-            display: flex;
-            gap: 20px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        button.control-btn {
-            background: linear-gradient(to bottom, #3498DB, #2980B9);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: clamp(16px, 4vw, 20px);
-            font-weight: bold;
-            border-radius: 10px;
-            cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            transition: all 0.2s;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: manipulation;
-        }
-        
-        button.control-btn:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            background: linear-gradient(to bottom, #2980B9, #21618C);
-        }
         
         .wind-indicator {
-            margin-top: 10px;
-            font-size: clamp(16px, 4vw, 22px);
+            font-size: 16px;
             color: #2C3E50;
             font-weight: bold;
             min-height: 1.5em;
             text-align: center;
+            margin-bottom: 5px;
+            flex-shrink: 0;
         }
         
         .wind-bar {
@@ -166,6 +152,80 @@
             font-family: monospace;
             letter-spacing: -2px;
         }
+
+        /* --- コントローラーエリアのデザイン --- */
+        .controller-area {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 10px 20px 20px 20px; /* 下部に余白 */
+            /* iOSセーフエリア対応（iPhone X以降の下部バー回避） */
+            padding-bottom: calc(20px + env(safe-area-inset-bottom)); 
+            gap: 20px;
+            flex-shrink: 0;
+        }
+
+        /* 左側の移動ボタン群 */
+        .d-pad {
+            display: flex;
+            gap: 10px;
+        }
+
+        button.control-btn {
+            background: linear-gradient(to bottom, #3498DB, #2980B9);
+            color: white;
+            border: none;
+            width: 70px;
+            height: 60px; /* 押しやすいサイズ */
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #1A5276;
+            transition: transform 0.1s;
+            touch-action: manipulation;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        button.control-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+            background: linear-gradient(to bottom, #2980B9, #21618C);
+        }
+
+        /* 右側のAボタン */
+        .action-btn-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #actionBtn {
+            background: radial-gradient(circle at 30% 30%, #ff7f50, #ff4500);
+            color: white;
+            border: 4px solid #fff;
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            font-size: 28px;
+            font-weight: bold;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.3), inset 0 0 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            touch-action: manipulation;
+        }
+        #actionBtn:active {
+            transform: scale(0.95);
+            background: radial-gradient(circle at 30% 30%, #ff6347, #cd3700);
+        }
+
     </style>
 </head>
 <body>
@@ -189,15 +249,108 @@
 
     <div class="wind-indicator" id="windIndicator">風: Lv.0</div>
     
-    <div class="controls">
-        <button id="leftBtn" class="control-btn">⬅️ 左へ</button>
-        <button id="rightBtn" class="control-btn">右へ ➡️</button>
+    <div class="controller-area">
+        <div class="d-pad">
+            <button id="leftBtn" class="control-btn">⬅️</button>
+            <button id="rightBtn" class="control-btn">➡️</button>
+        </div>
+        
+        <div class="action-btn-container">
+            <button id="actionBtn">A</button>
+        </div>
     </div>
+
+    <audio id="bgm" src="audio/backgroundmugic.mp3" loop preload="auto"></audio>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+
+        // --- iOS用ダブルタップ拡大防止 ---
+        document.addEventListener('dblclick', function(event) {
+            event.preventDefault();
+        }, { passive: false });
+
+        // ピンチズーム防止
+        document.addEventListener('touchmove', function(event) {
+            if (event.scale !== 1) { 
+                event.preventDefault(); 
+            }
+        }, { passive: false });
         
+        // --- Web Audio API (SE生成用) ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playSE(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+
+            if (type === 'float') {
+                // ふわっと音
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+
+            } else if (type === 'hit') {
+                // 衝突音
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+
+            } else if (type === 'success') {
+                // 成功音
+                const notes = [523.25, 659.25, 783.99]; // C, E, G
+                notes.forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = 'triangle';
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.frequency.value = freq;
+                    const time = now + i * 0.1;
+                    g.gain.setValueAtTime(0.2, time);
+                    g.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+                    o.start(time);
+                    o.stop(time + 0.4);
+                });
+            }
+        }
+
+        // --- BGM設定 ---
+        const bgm = document.getElementById('bgm');
+        bgm.volume = 0.8; 
+        let isBgmPlaying = false;
+
+        function startBgm() {
+            if (!isBgmPlaying) {
+                bgm.play().then(() => {
+                    isBgmPlaying = true;
+                }).catch(e => {
+                    console.log("BGM play waiting for interaction");
+                });
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
         // --- SVG画像の定義 ---
         const parachuteSVG = `
             <g transform="translate(250, 200)">
@@ -292,33 +445,58 @@
         const imgLanded = createImg(svgLandedStr);
         const imgWater = createImg(svgWaterStr);
         
-        // --- サメ画像の読み込み ---
         let sharkLoaded = false;
         const imgShark = new Image();
         imgShark.onload = function() { sharkLoaded = true; };
         imgShark.onerror = function() { sharkLoaded = false; };
         imgShark.src = 'shark.png'; 
 
+        let karasuLoaded = false;
+        const imgKarasu = new Image();
+        imgKarasu.onload = function() { karasuLoaded = true; };
+        imgKarasu.onerror = function() { karasuLoaded = false; };
+        imgKarasu.src = 'karasu.png';
+
         // --- ゲーム変数 ---
         
         function resizeCanvas() {
-            const maxWidth = Math.min(400, window.innerWidth - 40);
-            const ratio = 600 / 400;
-            canvas.style.width = maxWidth + 'px';
-            canvas.style.height = (maxWidth * ratio) + 'px';
+            // ゲームコンテナのサイズに合わせてキャンバスサイズを調整
+            const container = document.querySelector('.game-container');
+            const aspect = 400 / 600;
+            
+            // コンテナの幅と高さから最適なサイズを計算
+            let w = container.clientWidth;
+            let h = container.clientHeight;
+            
+            if (w / h > aspect) {
+                // 横長すぎる場合、高さに合わせる
+                w = h * aspect;
+            } else {
+                // 縦長すぎる場合、幅に合わせる
+                h = w / aspect;
+            }
+            
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
         }
-        resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
+        // 初期化時にも呼ぶ（DOM描画待ち）
+        setTimeout(resizeCanvas, 100);
         
         let currentStage = 1;
         let bestStage = 0;
+        
+        // パラメータ
+        const BASE_GRAVITY_SPEED = 0.85; 
+
         let player = {
             x: 200,
             y: 50,
             vx: 0,
-            vy: 1.2,
+            vy: BASE_GRAVITY_SPEED,
             state: 'falling',
-            mood: 'normal'
+            mood: 'normal',
+            radius: 30 
         };
         
         let wind = 0;
@@ -327,6 +505,7 @@
         let windChangeTimer = 0;
         let isGameOver = false;
         let clouds = [];
+        let karasus = []; 
         
         let landing = { start: 140, end: 260, y: 550 };
         
@@ -341,6 +520,31 @@
                 });
             }
         }
+
+        function initKarasus(stage) {
+            karasus = [];
+            if (stage < 3) return; 
+
+            const count = (stage - 2) * 2;
+            
+            for (let i = 0; i < count; i++) {
+                const startLeft = Math.random() < 0.5;
+                const speedBase = (1.5 + Math.random() * 2.0) * 0.2; 
+                
+                karasus.push({
+                    x: startLeft ? -100 - Math.random() * 100 : canvas.width + 100 + Math.random() * 100,
+                    y: 50 + Math.random() * 300, 
+                    vx: startLeft ? speedBase : -speedBase, 
+                    vyBase: Math.random() * 0.5, 
+                    vyFreq: 0.05 + Math.random() * 0.05, 
+                    timer: Math.random() * 100,
+                    width: 120,
+                    height: 90,
+                    motionType: Math.floor(Math.random() * 3)
+                });
+            }
+        }
+        
         initClouds();
         
         const overlay = document.getElementById('gameOverlay');
@@ -361,6 +565,7 @@
             }
 
             if (type === 'success') {
+                playSE('success'); 
                 modalTitle.textContent = `ステージ ${currentStage} クリア！🎉`;
                 modalTitle.style.color = '#2ECC71';
                 modalMsg.textContent = 'お見事です！\n次のステージへ進みますか？';
@@ -372,6 +577,7 @@
                     gameLoop();
                 };
             } else if (type === 'gameclear') {
+                playSE('success'); 
                 modalTitle.textContent = `全ステージクリア！🎊`;
                 modalTitle.style.color = '#F1C40F';
                 modalMsg.textContent = 'あなたは最高のパイロットです！\n最初から遊びますか？';
@@ -383,9 +589,10 @@
                     gameLoop();
                 };
             } else {
+                playSE('hit'); 
                 modalTitle.textContent = `失敗... 😱`;
                 modalTitle.style.color = '#E74C3C';
-                modalMsg.textContent = 'サメに襲われました...\nもう一度挑戦しますか？';
+                modalMsg.textContent = '衝突してしまいました...\nもう一度挑戦しますか？';
                 
                 modalBtn.textContent = 'リトライ';
                 modalBtn.classList.add('btn-retry');
@@ -405,7 +612,7 @@
             player.x = 200;
             player.y = 50;
             player.vx = 0;
-            player.vy = 1.2;
+            player.vy = BASE_GRAVITY_SPEED;
             player.state = 'falling';
             player.mood = 'normal';
             
@@ -423,6 +630,9 @@
             isGameOver = false;
             
             initClouds();
+            initKarasus(stage); 
+            startBgm(); 
+            resizeCanvas(); // リトライ時もサイズ確認
         }
         
         function drawCloud(x, y, size) {
@@ -489,11 +699,9 @@
             }
         }
         
-        // --- サメの描画 (位置をさらに上に調整) ---
         function drawSharks() {
             const sharkWidth = 300;  
             const sharkHeight = 175; 
-            // 迫力を出すため、さらに上に移動 (-40 -> -80)
             const yPos = landing.y - 80; 
             const useImage = sharkLoaded;
 
@@ -521,6 +729,62 @@
             }
         }
         
+        function updateAndDrawKarasus() {
+            karasus.forEach(k => {
+                if (!isGameOver) {
+                    k.timer += 0.1;
+                    k.x += k.vx;
+                    
+                    if (k.motionType === 0) {
+                        k.y += Math.sin(k.timer) * 0.5;
+                    } else if (k.motionType === 1) {
+                        k.y += Math.sin(k.timer * 0.5) * 2.0;
+                    } else {
+                        k.y += Math.sin(k.timer * 3.0) * 1.5;
+                    }
+
+                    if (k.vx > 0 && k.x > canvas.width + 100) {
+                        k.x = -100;
+                        k.y = 50 + Math.random() * 300;
+                    }
+                    else if (k.vx < 0 && k.x < -100) {
+                        k.x = canvas.width + 100;
+                        k.y = 50 + Math.random() * 300;
+                    }
+
+                    const kCenterX = k.x + k.width / 2;
+                    const kCenterY = k.y + k.height / 2;
+                    const dx = player.x - kCenterX;
+                    const dy = player.y - kCenterY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 55) {
+                        isGameOver = true;
+                        player.state = 'falling'; 
+                        setTimeout(() => { showResult('fail'); }, 500);
+                    }
+                }
+
+                if (karasuLoaded) {
+                    ctx.save();
+                    ctx.translate(k.x + k.width/2, k.y + k.height/2);
+                    
+                    if (k.vx < 0) {
+                        ctx.scale(-1, 1); 
+                    } else {
+                        ctx.scale(1, 1);
+                    }
+                    
+                    ctx.drawImage(imgKarasu, -k.width/2, -k.height/2, k.width, k.height);
+                    ctx.restore();
+                } else {
+                    ctx.fillStyle = 'black';
+                    ctx.font = '60px Arial';
+                    ctx.fillText('🦅', k.x, k.y + 40);
+                }
+            });
+        }
+
         function drawPlayer() {
             ctx.save();
             ctx.translate(player.x, player.y);
@@ -532,7 +796,7 @@
 
                 const isWindy = Math.abs(wind) > 0.1;
                 const isNearGround = player.y > 400;
-                const safeMargin = 20; // 判定に合わせて見た目のマージンも少し調整
+                const safeMargin = 20; 
                 const isSafe = player.x >= landing.start - safeMargin && player.x <= landing.end + safeMargin;
                 
                 let currentImg = imgNormal;
@@ -586,6 +850,16 @@
             windIndicator.style.color = color;
         }
         
+        // Aボタンアクション
+        function doAction() {
+            if (!isGameOver && player.state === 'falling') {
+                // 一瞬減速
+                player.vy = -0.5;
+                playSE('float'); 
+                startBgm();
+            }
+        }
+
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -607,6 +881,8 @@
                 console.error("Shark draw failed", e);
             }
             
+            updateAndDrawKarasus();
+            
             if (!isGameOver) {
                 windChangeTimer++;
                 if (windChangeTimer > 60) {
@@ -616,6 +892,12 @@
                 }
                 naturalWind += (targetNaturalWind - naturalWind) * 0.05;
 
+                if (player.vy < BASE_GRAVITY_SPEED) {
+                    player.vy += 0.05;
+                } else {
+                    player.vy = BASE_GRAVITY_SPEED;
+                }
+
                 player.vx += wind + naturalWind;
                 player.vx *= 0.95;
                 player.x += player.vx;
@@ -624,8 +906,6 @@
                 if (player.x < 15) { player.x = 15; player.vx = 0; }
                 if (player.x > canvas.width - 15) { player.x = canvas.width - 15; player.vx = 0; }
                 
-                // --- 判定ロジックの修正箇所 ---
-                // 1. 水面に達したら即アウト判定
                 if (player.y >= landing.y) {
                     isGameOver = true;
                     player.state = 'water';
@@ -633,11 +913,10 @@
                     player.vx = 0; player.vy = 0;
                     setTimeout(() => { showResult('fail'); }, 500);
                 }
-                // 2. 水面に達する直前(島の高さ)での成功判定
                 else {
-                    const groundLevel = landing.y - 15; // 少し判定位置を調整
+                    const groundLevel = landing.y - 15; 
                     if (player.y >= groundLevel) {
-                        const safeMargin = 15; // マージンを少し狭く厳格化
+                        const safeMargin = 15; 
                         const isSafe = (player.x >= landing.start - safeMargin && player.x <= landing.end + safeMargin);
                         if (isSafe) {
                             isGameOver = true;
@@ -671,26 +950,50 @@
         
         const leftBtn = document.getElementById('leftBtn');
         const rightBtn = document.getElementById('rightBtn');
+        const actionBtn = document.getElementById('actionBtn');
         
         const setWind = (val) => { 
-            if (!isGameOver) wind = val; 
+            if (!isGameOver) wind = val;
+            startBgm(); 
         };
         
+        // タッチイベントの重複登録を防ぐ
         function addBtnEvents(btn, val) {
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); setWind(val); });
+            btn.addEventListener('touchstart', (e) => { 
+                e.preventDefault(); 
+                setWind(val); 
+            }, { passive: false });
+            
+            btn.addEventListener('touchend', (e) => { 
+                e.preventDefault(); 
+                setWind(0); 
+            }, { passive: false });
+
+            // PC用マウス操作
             btn.addEventListener('mousedown', () => setWind(val));
-            btn.addEventListener('touchend', () => setWind(0));
             btn.addEventListener('mouseup', () => setWind(0));
             btn.addEventListener('mouseleave', () => setWind(0));
         }
         
         addBtnEvents(leftBtn, -0.3);
         addBtnEvents(rightBtn, 0.3);
+
+        // Aボタンイベント
+        actionBtn.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); 
+            doAction(); 
+        }, { passive: false });
+        
+        actionBtn.addEventListener('mousedown', (e) => { 
+            e.preventDefault(); 
+            doAction(); 
+        });
         
         window.addEventListener('keydown', (e) => {
             if (!isGameOver) {
-                if (e.key === 'ArrowLeft') wind = -0.3;
-                if (e.key === 'ArrowRight') wind = 0.3;
+                if (e.key === 'ArrowLeft') { wind = -0.3; startBgm(); }
+                if (e.key === 'ArrowRight') { wind = 0.3; startBgm(); }
+                if (e.code === 'Space') { doAction(); } 
             }
         });
         
