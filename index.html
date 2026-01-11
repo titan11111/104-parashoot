@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>パラシュート降下ゲーム（サメ迫力＆判定修正版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 10px;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        h1 {
+            color: #2C3E50;
+            font-size: clamp(20px, 5vw, 32px);
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .score-board {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 10px;
+            font-size: clamp(14px, 3vw, 18px);
+            color: #2C3E50;
+            font-weight: bold;
+        }
+        
+        .score-item {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 8px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .game-container {
+            position: relative;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+        }
+
+        #gameCanvas {
+            background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 70%, #4682B4 100%);
+            border: 4px solid #2C3E50;
+            border-radius: 10px;
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        #gameOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 6px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-title {
+            font-size: 24px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .modal-msg {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .modal-btn {
+            background: #2ECC71;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-weight: bold;
+            box-shadow: 0 3px 0 #27AE60;
+        }
+        .modal-btn:active {
+            transform: translateY(3px);
+            box-shadow: none;
+        }
+        .btn-retry { background: #E74C3C; box-shadow: 0 3px 0 #C0392B; }
+        .btn-retry:active { box-shadow: none; }
+        
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        button.control-btn {
+            background: linear-gradient(to bottom, #3498DB, #2980B9);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: clamp(16px, 4vw, 20px);
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        
+        button.control-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            background: linear-gradient(to bottom, #2980B9, #21618C);
+        }
+        
+        .wind-indicator {
+            margin-top: 10px;
+            font-size: clamp(16px, 4vw, 22px);
+            color: #2C3E50;
+            font-weight: bold;
+            min-height: 1.5em;
+            text-align: center;
+        }
+        
+        .wind-bar {
+            display: inline-block;
+            font-family: monospace;
+            letter-spacing: -2px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🪂 パラシュート着陸ゲーム</h1>
+    <div class="score-board">
+        <div class="score-item">ステージ: <span id="stage">1</span> / 10</div>
+        <div class="score-item">最高記録: <span id="best">0</span></div>
+    </div>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        
+        <div id="gameOverlay">
+            <div class="modal-content">
+                <div id="modalTitle" class="modal-title"></div>
+                <div id="modalMsg" class="modal-msg"></div>
+                <button id="modalBtn" class="modal-btn">次へ</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="wind-indicator" id="windIndicator">風: Lv.0</div>
+    
+    <div class="controls">
+        <button id="leftBtn" class="control-btn">⬅️ 左へ</button>
+        <button id="rightBtn" class="control-btn">右へ ➡️</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        // --- SVG画像の定義 ---
+        const parachuteSVG = `
+            <g transform="translate(250, 200)">
+                <path d="M-150,0 A150,150 0 0,1 150,0" fill="none" stroke="#333" stroke-width="5"/>
+                <path d="M-150,0 A150,150 0 0,1 -75,-129.9 L-50,-86.6 A100,100 0 0,0 -100,0 Z" fill="#E74C3C" stroke="#333" stroke-width="3"/>
+                <path d="M-75,-129.9 A150,150 0 0,1 0,-150 L0,-100 A100,100 0 0,0 -50,-86.6 Z" fill="#E67E22" stroke="#333" stroke-width="3"/>
+                <path d="M0,-150 A150,150 0 0,1 75,-129.9 L50,-86.6 A100,100 0 0,0 0,-100 Z" fill="#F1C40F" stroke="#333" stroke-width="3"/>
+                <path d="M75,-129.9 A150,150 0 0,1 150,0 L100,0 A100,100 0 0,0 50,-86.6 Z" fill="#2ECC71" stroke="#333" stroke-width="3"/>
+                <path d="M-100,0 A100,100 0 0,1 100,0" fill="#3498DB" stroke="#333" stroke-width="3"/>
+            </g>
+            <g stroke="#333" stroke-width="3">
+                <line x1="100" y1="200" x2="200" y2="330" /> <line x1="400" y1="200" x2="300" y2="330" />
+                <line x1="150" y1="200" x2="210" y2="330" /> <line x1="350" y1="200" x2="290" y2="330" />
+                <line x1="200" y1="200" x2="220" y2="330" /> <line x1="300" y1="200" x2="280" y2="330" />
+            </g>`;
+
+        const svgNormalStr = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+            ${parachuteSVG}
+            <g transform="translate(250, 380)">
+                <ellipse cx="0" cy="0" rx="50" ry="60" fill="#FFE0B2" stroke="#333" stroke-width="3"/>
+                <path d="M-30,-50 A40,40 0 0,1 30,-50" fill="#F1C40F" stroke="#333" stroke-width="3"/> 
+                <g fill="#333"> 
+                    <circle cx="-15" cy="-20" r="5"/> <circle cx="15" cy="-20" r="5"/>
+                    <path d="M-25,-35 Q-15,-30 -5,-35" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M5,-35 Q15,-30 25,-35" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M-15,-5 Q0,-15 15,-5" fill="none" stroke="#333" stroke-width="2"/>
+                </g>
+                <path d="M-50,0 Q-70,-20 -60,-40" fill="none" stroke="#333" stroke-width="4"/>
+                <path d="M50,0 Q70,-20 60,-40" fill="none" stroke="#333" stroke-width="4"/>
+            </g>
+        </svg>`;
+
+        const svgPanicStr = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+            ${parachuteSVG}
+            <g transform="translate(250, 380)">
+                <ellipse cx="0" cy="0" rx="50" ry="60" fill="#FFE0B2" stroke="#333" stroke-width="3"/>
+                <path d="M-30,-50 A40,40 0 0,1 30,-50" fill="#F1C40F" stroke="#333" stroke-width="3"/> 
+                <g stroke="#333" stroke-width="3" fill="none">
+                    <path d="M-25,-25 L-15,-20 L-25,-15"/>
+                    <path d="M25,-25 L15,-20 L25,-15"/>
+                    <circle cx="0" cy="10" r="10" fill="#333"/>
+                    <path d="M35,-40 Q40,-50 45,-35" stroke="#3498DB" fill="#E0F7FA"/>
+                    <path d="M-35,-40 Q-40,-50 -45,-35" stroke="#3498DB" fill="#E0F7FA"/>
+                </g>
+                <path d="M-45,-10 L-70,-40" stroke="#333" stroke-width="4"/>
+                <path d="M45,-10 L70,-40" stroke="#333" stroke-width="4"/>
+            </g>
+        </svg>`;
+
+        const svgLandedStr = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+            <g transform="translate(250, 410) scale(1, 0.3)">
+                <path d="M-150,0 A150,150 0 0,1 150,0 Z" fill="#BDC3C7" stroke="#333" stroke-width="5"/>
+            </g>
+            <g transform="translate(250, 380)">
+                <ellipse cx="0" cy="10" rx="50" ry="50" fill="#FFE0B2" stroke="#333" stroke-width="3"/>
+                <g fill="#333"> 
+                    <path d="M-20,-20 Q-15,-25 -10,-20" stroke="#333" stroke-width="3" fill="none"/>
+                    <path d="M10,-20 Q15,-25 20,-20" stroke="#333" stroke-width="3" fill="none"/>
+                    <path d="M-10,-5 Q0,10 10,-5" stroke="#333" stroke-width="2" fill="none"/>
+                    <path d="M-50,20 L-70,0" stroke="#333" stroke-width="4"/>
+                    <path d="M50,20 L70,0" stroke="#333" stroke-width="4"/>
+                </g>
+            </g>
+        </svg>`;
+
+        const svgWaterStr = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+            <g transform="translate(250, 380)">
+                <path d="M-50,0 A50,60 0 0,1 50,0 L50,20 L-50,20 Z" fill="#FFE0B2" stroke="#333" stroke-width="3"/>
+                <g fill="#333"> 
+                    <circle cx="-15" cy="-20" r="7" fill="#fff"/> <circle cx="-15" cy="-20" r="2"/>
+                    <circle cx="15" cy="-20" r="7" fill="#fff"/> <circle cx="15" cy="-20" r="2"/>
+                    <path d="M-10,0 Q0,-5 10,0 Q5,5 -5,5 Z" fill="none" stroke="#333" stroke-width="2"/>
+                    <path d="M-20,-15 L-18,-12 M20,-15 L18,-12" stroke="#3498DB" stroke-width="2"/>
+                </g>
+                <path d="M-50,0 Q-70,-30 -80,-10" fill="none" stroke="#333" stroke-width="4"/>
+                <path d="M50,0 Q70,-30 80,-10" fill="none" stroke="#333" stroke-width="4"/>
+            </g>
+        </svg>`;
+
+        function createImg(svgStr) {
+            const img = new Image();
+            img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
+            return img;
+        }
+
+        const imgNormal = createImg(svgNormalStr);
+        const imgPanic = createImg(svgPanicStr);
+        const imgLanded = createImg(svgLandedStr);
+        const imgWater = createImg(svgWaterStr);
+        
+        // --- サメ画像の読み込み ---
+        let sharkLoaded = false;
+        const imgShark = new Image();
+        imgShark.onload = function() { sharkLoaded = true; };
+        imgShark.onerror = function() { sharkLoaded = false; };
+        imgShark.src = 'shark.png'; 
+
+        // --- ゲーム変数 ---
+        
+        function resizeCanvas() {
+            const maxWidth = Math.min(400, window.innerWidth - 40);
+            const ratio = 600 / 400;
+            canvas.style.width = maxWidth + 'px';
+            canvas.style.height = (maxWidth * ratio) + 'px';
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        let currentStage = 1;
+        let bestStage = 0;
+        let player = {
+            x: 200,
+            y: 50,
+            vx: 0,
+            vy: 1.2,
+            state: 'falling',
+            mood: 'normal'
+        };
+        
+        let wind = 0;
+        let naturalWind = 0;
+        let targetNaturalWind = 0;
+        let windChangeTimer = 0;
+        let isGameOver = false;
+        let clouds = [];
+        
+        let landing = { start: 140, end: 260, y: 550 };
+        
+        function initClouds() {
+            clouds = [];
+            for (let i = 0; i < 5; i++) {
+                clouds.push({
+                    x: Math.random() * 400,
+                    y: Math.random() * 400,
+                    size: 20 + Math.random() * 30,
+                    speed: 0.3 + Math.random() * 0.5
+                });
+            }
+        }
+        initClouds();
+        
+        const overlay = document.getElementById('gameOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMsg = document.getElementById('modalMsg');
+        const modalBtn = document.getElementById('modalBtn');
+
+        function hideOverlay() {
+            overlay.style.display = 'none';
+        }
+
+        function showResult(type) {
+            overlay.style.display = 'flex';
+            modalBtn.className = 'modal-btn';
+
+            if (type === 'success' && currentStage >= 10) {
+                type = 'gameclear';
+            }
+
+            if (type === 'success') {
+                modalTitle.textContent = `ステージ ${currentStage} クリア！🎉`;
+                modalTitle.style.color = '#2ECC71';
+                modalMsg.textContent = 'お見事です！\n次のステージへ進みますか？';
+                
+                modalBtn.textContent = '次のステージへ';
+                modalBtn.onclick = () => {
+                    hideOverlay();
+                    initStage(currentStage + 1);
+                    gameLoop();
+                };
+            } else if (type === 'gameclear') {
+                modalTitle.textContent = `全ステージクリア！🎊`;
+                modalTitle.style.color = '#F1C40F';
+                modalMsg.textContent = 'あなたは最高のパイロットです！\n最初から遊びますか？';
+                
+                modalBtn.textContent = 'はじめから';
+                modalBtn.onclick = () => {
+                    hideOverlay();
+                    initStage(1);
+                    gameLoop();
+                };
+            } else {
+                modalTitle.textContent = `失敗... 😱`;
+                modalTitle.style.color = '#E74C3C';
+                modalMsg.textContent = 'サメに襲われました...\nもう一度挑戦しますか？';
+                
+                modalBtn.textContent = 'リトライ';
+                modalBtn.classList.add('btn-retry');
+                modalBtn.onclick = () => {
+                    hideOverlay();
+                    initStage(currentStage);
+                    gameLoop();
+                };
+            }
+        }
+
+        function initStage(stage) {
+            currentStage = stage;
+            document.getElementById('stage').textContent = stage;
+            hideOverlay();
+            
+            player.x = 200;
+            player.y = 50;
+            player.vx = 0;
+            player.vy = 1.2;
+            player.state = 'falling';
+            player.mood = 'normal';
+            
+            const baseWidth = 120;
+            const reduction = (stage - 1) * 3;
+            const newWidth = Math.max(20, baseWidth - reduction);
+            const center = 200;
+            landing.start = center - newWidth / 2;
+            landing.end = center + newWidth / 2;
+            
+            wind = 0;
+            naturalWind = 0;
+            targetNaturalWind = 0;
+            windChangeTimer = 0;
+            isGameOver = false;
+            
+            initClouds();
+        }
+        
+        function drawCloud(x, y, size) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.6, y, size * 0.8, 0, Math.PI * 2);
+            ctx.arc(x - size * 0.6, y, size * 0.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function drawSea() {
+            ctx.fillStyle = '#1E90FF';
+            ctx.fillRect(0, landing.y, canvas.width, canvas.height - landing.y);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                for (let x = 0; x <= canvas.width; x += 20) {
+                    const y = landing.y + 10 + i * 15 + Math.sin(x * 0.05 + Date.now() * 0.003) * 5;
+                    ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+        }
+        
+        function drawLanding() {
+            const width = landing.end - landing.start;
+            const centerX = (landing.start + landing.end) / 2;
+            const islandHeight = 30;
+
+            ctx.fillStyle = '#E5C687';
+            ctx.beginPath();
+            ctx.ellipse(centerX, landing.y, width / 2 + 10, islandHeight, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#D4B06F';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#2ECC71';
+            ctx.beginPath();
+            ctx.ellipse(centerX, landing.y - 2, width / 2, islandHeight / 1.5, 0, Math.PI, 0); 
+            ctx.fill();
+
+            if (width > 30) {
+                const treeX = centerX + width / 4;
+                const treeY = landing.y - 5;
+                ctx.strokeStyle = '#8D6E63';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(treeX, treeY);
+                ctx.quadraticCurveTo(treeX + 5, treeY - 15, treeX - 5, treeY - 30);
+                ctx.stroke();
+
+                ctx.fillStyle = '#228B22';
+                for(let i=0; i<3; i++) {
+                    ctx.beginPath();
+                    const angle = (i * 120) * Math.PI / 180;
+                    const lx = treeX - 5 + Math.cos(angle) * 15;
+                    const ly = treeY - 30 + Math.sin(angle) * 10;
+                    ctx.ellipse(lx, ly, 8, 4, angle, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        // --- サメの描画 (位置をさらに上に調整) ---
+        function drawSharks() {
+            const sharkWidth = 300;  
+            const sharkHeight = 175; 
+            // 迫力を出すため、さらに上に移動 (-40 -> -80)
+            const yPos = landing.y - 80; 
+            const useImage = sharkLoaded;
+
+            const leftSharkCenterX = landing.start / 2; 
+            const leftSharkDrawX = leftSharkCenterX - (sharkWidth / 2);
+
+            if (useImage) {
+                ctx.drawImage(imgShark, leftSharkDrawX, yPos, sharkWidth, sharkHeight);
+            } else {
+                ctx.font = '200px Arial';
+                ctx.fillText('🦈', leftSharkCenterX - 100, yPos + 150);
+            }
+            
+            const rightSharkCenterX = (landing.end + canvas.width) / 2;
+            
+            if (useImage) {
+                ctx.save();
+                ctx.translate(rightSharkCenterX, yPos);
+                ctx.scale(-1, 1);
+                ctx.drawImage(imgShark, -sharkWidth / 2, 0, sharkWidth, sharkHeight);
+                ctx.restore();
+            } else {
+                ctx.font = '200px Arial';
+                ctx.fillText('🦈', rightSharkCenterX - 100, yPos + 150);
+            }
+        }
+        
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            const size = 100;
+            
+            if (player.state === 'falling') {
+                const sway = Math.sin(Date.now() / 300) * 0.05;
+                ctx.rotate(sway);
+
+                const isWindy = Math.abs(wind) > 0.1;
+                const isNearGround = player.y > 400;
+                const safeMargin = 20; // 判定に合わせて見た目のマージンも少し調整
+                const isSafe = player.x >= landing.start - safeMargin && player.x <= landing.end + safeMargin;
+                
+                let currentImg = imgNormal;
+                if (isWindy || (isNearGround && !isSafe)) {
+                    currentImg = imgPanic; 
+                    const panicShake = Math.sin(Date.now() / 50) * 0.05;
+                    ctx.rotate(panicShake);
+                }
+                ctx.drawImage(currentImg, -size/2, -size/2 - 20, size, size);
+
+            } else if (player.state === 'water') {
+                const bob = Math.sin(Date.now() / 200) * 3;
+                ctx.translate(0, bob);
+                ctx.drawImage(imgWater, -size/2, -size/2 + 20, size, size);
+
+            } else if (player.state === 'landed') {
+                ctx.drawImage(imgLanded, -size/2, -size/2 + 10, size, size);
+            }
+            
+            ctx.restore();
+        }
+        
+        function updateWindIndicator() {
+            const windIndicator = document.getElementById('windIndicator');
+            const totalWind = naturalWind + wind;
+            const maxWind = 0.6;
+            
+            const windMag = Math.abs(totalWind);
+            let level = Math.floor((windMag / maxWind) * 10);
+            if (level > 10) level = 10;
+            if (windMag > 0 && level === 0) level = 1;
+            if (windMag < 0.05) level = 0;
+
+            let text = "";
+            let color = "#2C3E50";
+
+            if (level === 0) {
+                text = "風: 無風 (Lv.0)";
+            } else {
+                const arrow = totalWind < 0 ? "◀" : "▶";
+                const bars = arrow.repeat(level);
+                if (totalWind < 0) {
+                    text = `風: <span class="wind-bar">${bars}</span> Lv.${level}`;
+                    color = "#3498DB";
+                } else {
+                    text = `風: Lv.${level} <span class="wind-bar">${bars}</span>`;
+                    color = "#E67E22";
+                }
+            }
+            windIndicator.innerHTML = text;
+            windIndicator.style.color = color;
+        }
+        
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            clouds.forEach(cloud => {
+                cloud.x += cloud.speed;
+                if (cloud.x > canvas.width + cloud.size) {
+                    cloud.x = -cloud.size;
+                    cloud.y = Math.random() * 400;
+                }
+                drawCloud(cloud.x, cloud.y, cloud.size);
+            });
+            
+            drawSea();
+            drawLanding();
+            
+            try {
+                drawSharks();
+            } catch (e) {
+                console.error("Shark draw failed", e);
+            }
+            
+            if (!isGameOver) {
+                windChangeTimer++;
+                if (windChangeTimer > 60) {
+                    windChangeTimer = 0;
+                    const windStrength = 0.1 + (currentStage - 1) * 0.02;
+                    targetNaturalWind = (Math.random() - 0.5) * windStrength;
+                }
+                naturalWind += (targetNaturalWind - naturalWind) * 0.05;
+
+                player.vx += wind + naturalWind;
+                player.vx *= 0.95;
+                player.x += player.vx;
+                player.y += player.vy;
+                
+                if (player.x < 15) { player.x = 15; player.vx = 0; }
+                if (player.x > canvas.width - 15) { player.x = canvas.width - 15; player.vx = 0; }
+                
+                // --- 判定ロジックの修正箇所 ---
+                // 1. 水面に達したら即アウト判定
+                if (player.y >= landing.y) {
+                    isGameOver = true;
+                    player.state = 'water';
+                    player.y = landing.y;
+                    player.vx = 0; player.vy = 0;
+                    setTimeout(() => { showResult('fail'); }, 500);
+                }
+                // 2. 水面に達する直前(島の高さ)での成功判定
+                else {
+                    const groundLevel = landing.y - 15; // 少し判定位置を調整
+                    if (player.y >= groundLevel) {
+                        const safeMargin = 15; // マージンを少し狭く厳格化
+                        const isSafe = (player.x >= landing.start - safeMargin && player.x <= landing.end + safeMargin);
+                        if (isSafe) {
+                            isGameOver = true;
+                            player.state = 'landed';
+                            player.y = landing.y - 10;
+                            player.vx = 0; player.vy = 0;
+                            if (currentStage > bestStage) {
+                                bestStage = currentStage;
+                                document.getElementById('best').textContent = bestStage;
+                            }
+                            setTimeout(() => { showResult('success'); }, 500); 
+                        }
+                    }
+                }
+            } else {
+                if (player.state === 'landed') {
+                    player.y = landing.y - 10;
+                    player.vx = 0;
+                }
+                if (player.state === 'water') {
+                    player.y = landing.y;
+                    player.vx = 0;
+                }
+            }
+            
+            drawPlayer();
+            updateWindIndicator();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        
+        const setWind = (val) => { 
+            if (!isGameOver) wind = val; 
+        };
+        
+        function addBtnEvents(btn, val) {
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); setWind(val); });
+            btn.addEventListener('mousedown', () => setWind(val));
+            btn.addEventListener('touchend', () => setWind(0));
+            btn.addEventListener('mouseup', () => setWind(0));
+            btn.addEventListener('mouseleave', () => setWind(0));
+        }
+        
+        addBtnEvents(leftBtn, -0.3);
+        addBtnEvents(rightBtn, 0.3);
+        
+        window.addEventListener('keydown', (e) => {
+            if (!isGameOver) {
+                if (e.key === 'ArrowLeft') wind = -0.3;
+                if (e.key === 'ArrowRight') wind = 0.3;
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') wind = 0;
+        });
+        
+        initStage(1);
+        gameLoop();
+    </script>
+</body>
+</html>
